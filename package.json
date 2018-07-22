@@ -16,23 +16,6 @@
     "url": "https://github.com/0x6368656174/sri2018-ex3/issues"
   },
   "homepage": "https://github.com/0x6368656174/sri2018-ex3#readme",
-  "nyc": {
-    "extension": [
-      ".ts",
-      ".tsx"
-    ],
-    "exclude": [
-      "dist",
-      "coverage",
-      "test",
-      "**/*.d.ts"
-    ],
-    "reporter": [
-      "html",
-      "text"
-    ],
-    "all": true
-  },
   "devDependencies": {
     "@types/chai": "^4.1.4",
     "@types/mocha": "^5.2.5",

@@ -47,6 +47,14 @@ export function isNight(hour: number): boolean {
   return !isDay(hour);
 }
 
+interface IDeviceAvailableStartHoursCache {
+  [mode: string]: {
+    [duration: number]: number[];
+  };
+}
+
+const deviceAvailableStartHoursCache: IDeviceAvailableStartHoursCache = {};
+
 /**
  * Возвращает массив часов, в которые устройство может быть запущено
  *
@@ -61,14 +69,36 @@ export function deviceAvailableStartHours(device: IDevice): number[] {
     return [0];
   }
 
-  switch (device.mode) {
-    case 'day':
-      return DAY_DEVICE_AVAILABLE_HOURS.slice(0, DAY_DEVICE_AVAILABLE_HOURS.length - device.duration + 1);
-    case 'night':
-      return NIGHT_DEVICE_AVAILABLE_HOURS.slice(0, NIGHT_DEVICE_AVAILABLE_HOURS.length - device.duration + 1);
+  // Поищем результат в кеше
+  const modeString = device.mode ? device.mode : 'all';
+  if (deviceAvailableStartHoursCache[modeString] && deviceAvailableStartHoursCache[modeString][device.duration]) {
+    return deviceAvailableStartHoursCache[modeString][device.duration];
   }
 
-  return ALL_DAY_DEVICE_AVAILABLE_HOURS;
+  let result: number[];
+
+  switch (device.mode) {
+    case 'day':
+      result = DAY_DEVICE_AVAILABLE_HOURS.slice(0, DAY_DEVICE_AVAILABLE_HOURS.length - device.duration + 1);
+      break;
+    case 'night':
+      result = NIGHT_DEVICE_AVAILABLE_HOURS.slice(0, NIGHT_DEVICE_AVAILABLE_HOURS.length - device.duration + 1);
+      break;
+    default:
+      result = ALL_DAY_DEVICE_AVAILABLE_HOURS;
+      break;
+  }
+
+  // Сохраним результат в кеш
+  if (!deviceAvailableStartHoursCache[modeString]) {
+    deviceAvailableStartHoursCache[modeString] = {
+      [device.duration]: result,
+    };
+  } else {
+    deviceAvailableStartHoursCache[modeString][device.duration] = result;
+  }
+
+  return result;
 }
 
 /**
@@ -101,6 +131,13 @@ export function canDeviceStartAt(device: IDevice, startHour: number): boolean {
   return true;
 }
 
+interface IDeviceWorkHoursCache {
+  [startHour: number]: {
+    [duration: number]: number[];
+  };
+}
+const deviceWorkHoursCache: IDeviceWorkHoursCache = {};
+
 /**
  * Возвращает часы, в которых будет работать устройство device, запущенное в startHour
  *
@@ -110,6 +147,11 @@ export function canDeviceStartAt(device: IDevice, startHour: number): boolean {
  * @returns Массив часов
  */
 export function deviceWorkHours(device: IDevice, startHour: number): number[] {
+  // Попробуем взять время из кеша
+  if (deviceWorkHoursCache[startHour] && deviceWorkHoursCache[startHour][device.duration]) {
+    return deviceWorkHoursCache[startHour][device.duration];
+  }
+
   const lastHour = startHour + device.duration - 1;
 
   const result = [];
@@ -120,6 +162,15 @@ export function deviceWorkHours(device: IDevice, startHour: number): number[] {
     } else {
       result.push(hour - 24);
     }
+  }
+
+  // Сохраним результат в кеш
+  if (!deviceWorkHoursCache[startHour]) {
+    deviceWorkHoursCache[startHour] = {
+      [device.duration]: result,
+    };
+  } else {
+    deviceWorkHoursCache[startHour][device.duration] = result;
   }
 
   return result;

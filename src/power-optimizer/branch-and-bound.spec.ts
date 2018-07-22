@@ -4,15 +4,15 @@ import 'mocha';
 import { join } from 'path';
 import {
   calculate,
-  calculateDeviceRunCoast,
   createDeviceVertex,
   createDeviceVertices,
   filterDeviceVertices,
   IStatistic,
   IVertex,
   NoDecisionError,
-} from '../src/branch-and-bound';
-import { IDevice, INormalizedRate, normalizeInput } from '../src/index';
+} from './branch-and-bound';
+import { IDevice } from './index';
+import { INormalizedRate, normalizeInput } from './normalizer';
 
 function compareVertex(result: IVertex, expected: IVertex) {
   expect(result.device).to.be.equal(expected.device);
@@ -23,66 +23,6 @@ function compareVertex(result: IVertex, expected: IVertex) {
 }
 
 describe('branch-and-bound', () => {
-  describe('calculateDeviceRunCoast()', () => {
-    it('should return result', () => {
-      const rates = [
-        {
-          from: 9,
-          to: 12,
-          value: 0.001,
-        },
-        {
-          from: 12,
-          to: 0,
-          value: 0.002,
-        },
-        {
-          from: 0,
-          to: 8,
-          value: 0.001,
-        },
-      ];
-
-      const testDevice: IDevice = {
-        duration: 1,
-        id: '',
-        name: '',
-        power: 100,
-      };
-
-      expect(calculateDeviceRunCoast(testDevice, 10, rates)).is.equal(0.1);
-
-      testDevice.duration = 2;
-      expect(calculateDeviceRunCoast(testDevice, 10, rates)).is.equal(0.2);
-
-      testDevice.duration = 3;
-      expect(calculateDeviceRunCoast(testDevice, 10, rates)).is.equal(0.4);
-
-      testDevice.power = 150;
-      expect(calculateDeviceRunCoast(testDevice, 10, rates)).is.equal(0.6);
-
-      expect(calculateDeviceRunCoast(testDevice, 22, rates)).is.equal(0.75);
-    });
-
-    it('should throw error, if not found rate', () => {
-      const rates = [
-        {
-          from: 9,
-          to: 12,
-          value: 0.001,
-        },
-      ];
-
-      const testDevice: IDevice = {
-        duration: 1,
-        id: '',
-        name: '',
-        power: 100,
-      };
-      expect(() => calculateDeviceRunCoast(testDevice, 8, rates)).to.throw('Not found rate for hour = 8');
-    });
-  });
-
   describe('createDeviceVertices()', () => {
     const normalizedRates: INormalizedRate[] = [
       {
@@ -690,8 +630,8 @@ describe('branch-and-bound', () => {
   });
 
   describe('calculate()', () => {
-    const input = JSON.parse(readFileSync(join(__dirname, 'input.json'), 'utf-8'));
-    const output = JSON.parse(readFileSync(join(__dirname, 'output.json'), 'utf-8'));
+    const input = JSON.parse(readFileSync(join(__dirname, '..', '..', 'test', 'input.json'), 'utf-8'));
+    const output = JSON.parse(readFileSync(join(__dirname, '..', '..', 'test', 'output.json'), 'utf-8'));
     const normalizedInput = normalizeInput(input);
 
     it('should return result without statistic', () => {

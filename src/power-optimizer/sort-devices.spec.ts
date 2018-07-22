@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import 'mocha';
-import { IDevice } from '../src/index';
-import { sortDevices } from '../src/sort-devices';
+import { IDevice } from './index';
+import { sortDevices } from './sort-devices';
 
 describe('sort-device', () => {
   describe('sortDevices()', () => {

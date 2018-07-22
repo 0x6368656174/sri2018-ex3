@@ -1,7 +1,9 @@
 import { performance } from 'perf_hooks';
-import { IDevice, INormalizedInput, INormalizedRate, IOutput, IOutputDeviceValues, IOutputSchedule } from './index';
+import { calculateDeviceRunCoast } from './coast';
+import { IDevice, IOutput, IOutputDeviceValues, IOutputSchedule } from './index';
+import { INormalizedInput, INormalizedRate } from './normalizer';
 import { sortDevices } from './sort-devices';
-import { deviceAvailableStartHours, deviceWorkHours, findRateForHour } from './time';
+import { deviceAvailableStartHours, deviceWorkHours } from './time';
 
 /**
  * Вершина дерева
@@ -45,32 +47,6 @@ export interface ICalculateResult {
 }
 
 /**
- * Рассчитывает стоимость работы устройства device, запущенного в час startHour, используя тарифы
- * normalizedRates.
- *
- * @param device Устройство
- * @param startHour Время начала работы
- * @param normalizedRates Нормализованные тарифы
- *
- * @returns Стоимость работы
- *
- * @throws Если не найдет тариф
- */
-
-export function calculateDeviceRunCoast(
-  device: IDevice,
-  startHour: number,
-  normalizedRates: INormalizedRate[],
-): number {
-  return deviceWorkHours(device, startHour).reduce((previous, hour) => {
-    // Чтоб не искать повторно rate, проверим, не удовлетворяет ли стрый нашим условиям
-    const rate = findRateForHour(normalizedRates, hour);
-
-    return previous + device.power * rate.value;
-  }, 0);
-}
-
-/**
  * Создает вершину для устройства device, запущенного в startHour, в сетке нормализованных тарифов normalizedRates,
  * с необязательным родителем parent.
  *
@@ -98,11 +74,13 @@ export function createDeviceVertex(
   normalizedRates: INormalizedRate[],
 ): IVertex {
   const parentTotalCoast = parent ? parent.totalCoast : 0;
-  const totalPowerByHours = parent ? [...parent.totalPowerByHours] : new Array(24).fill(0);
+  const totalPowerByHours = parent ? parent.totalPowerByHours.slice(0) : new Array(24).fill(0);
   const runHours = deviceWorkHours(device, startHour);
   let totalMaxPower = 0;
   for (const hour of runHours) {
-    const power = totalPowerByHours[hour] + device.power;
+    const parentPower = totalPowerByHours[hour];
+    const power = parentPower + device.power;
+    // console.log(parentPower, device.power, power);
     totalMaxPower = Math.max(totalMaxPower, power);
     totalPowerByHours[hour] = power;
   }
@@ -164,6 +142,23 @@ export class NoDecisionError extends Error {
   }
 }
 
+/**
+ * Рассчитывает оптимальный график работы устройств по алгоритму "ветвей и границ"
+ *
+ * Т.к. задача поиска оптимального графика работы устройств NP-сложная, то сложно написать алгоритм, который
+ * позволит найти решение за полиномиальное время. Для поиска решения нужно использовать алгоритм полного перебора.
+ * Данный метод рассчитывает решение при помощи оптимизированного алгоритма полного перебора, что позволяет перебрать
+ * все допустимые комбинации работы устройств за адекватное время.
+ *
+ * Если не удалось найти не одного варианта, при котором устройства, в принципе смогут работать вместе при заданной
+ * максимальной мощности, выкинет ошибку NoDecisionError().
+ *
+ * @param normalizedInput Нормализованные входные данные
+ * @param statistic Признак того, что нужно вести статистику
+ * @param precision Точность, для округления дробных чисел
+ *
+ * @returns Оптимальный график работы устройств и статистику работы
+ */
 export function calculate(normalizedInput: INormalizedInput, statistic = false, precision = 8): ICalculateResult {
   // Запустим таймер расчета времени работы
   const start = statistic ? performance.now() : undefined;
@@ -215,7 +210,7 @@ export function calculate(normalizedInput: INormalizedInput, statistic = false, 
     }
   }
 
-  // Сохраним цену работы
+  // Сохраним результат
   const value: number = parseFloat((decisionVertex as IVertex).totalCoast.toFixed(precision));
   const devices: IOutputDeviceValues = {};
   const schedule: IOutputSchedule = {};

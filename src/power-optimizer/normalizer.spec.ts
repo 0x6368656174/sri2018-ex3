@@ -1,8 +1,9 @@
 import { expect } from 'chai';
 import 'mocha';
-import { IInput, INormalizedInput, IRate, normalizeInput, normalizeInputRates } from '../src/index';
+import { IInput, IRate } from './index';
+import { INormalizedInput, INormalizedRate, normalizeInput, normalizeInputRates } from './normalizer';
 
-describe('index', () => {
+describe('normalizer', () => {
   describe('normalizeInputRates()', () => {
     it('should return normalized rates object', () => {
       const rates: IRate[] = [
@@ -17,7 +18,7 @@ describe('index', () => {
           value: 5.38,
         },
       ];
-      const normalizedRates: IRate[] = [
+      const normalizedRates: INormalizedRate[] = [
         {
           from: 7,
           to: 10,
