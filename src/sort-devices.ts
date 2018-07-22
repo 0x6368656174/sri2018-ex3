@@ -53,7 +53,7 @@ export function sortDevices(devices: IDevice[]): IDevice[] {
     } else if (left.id < right.id) {
       return -1;
     } else {
-      throw new Error(`Two device contain equals ID=${left.id}`);
+      throw new Error(`Two device contain equals ID = ${left.id}`);
     }
   });
 }

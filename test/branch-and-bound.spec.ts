@@ -1,7 +1,26 @@
 import { expect } from 'chai';
+import { readFileSync } from 'fs';
 import 'mocha';
-import { calculateDeviceRunCoast, createDeviceVertices, IVertex } from './branch-and-bound';
-import { IDevice, IRate } from './index';
+import { join } from 'path';
+import {
+  calculate,
+  calculateDeviceRunCoast,
+  createDeviceVertex,
+  createDeviceVertices,
+  filterDeviceVertices,
+  IStatistic,
+  IVertex,
+  NoDecisionError,
+} from '../src/branch-and-bound';
+import { IDevice, INormalizedRate, normalizeInput } from '../src/index';
+
+function compareVertex(result: IVertex, expected: IVertex) {
+  expect(result.device).to.be.equal(expected.device);
+  expect(result.parent).to.be.equal(expected.parent);
+  expect(result.startHour).to.be.equal(expected.startHour);
+  expect(result.coast).to.be.closeTo(expected.coast, 0.00000001);
+  expect(result.totalPowerByHours).to.be.eql(expected.totalPowerByHours);
+}
 
 describe('branch-and-bound', () => {
   describe('calculateDeviceRunCoast()', () => {
@@ -65,15 +84,7 @@ describe('branch-and-bound', () => {
   });
 
   describe('createDeviceVertices()', () => {
-    function compareVertex(result: IVertex, expected: IVertex) {
-      expect(result.device).to.be.equal(expected.device);
-      expect(result.parent).to.be.equal(expected.parent);
-      expect(result.startHour).to.be.equal(expected.startHour);
-      expect(result.coast).to.be.closeTo(expected.coast, 0.00000001);
-      expect(result.powerByHours).to.be.eql(expected.powerByHours);
-    }
-
-    const normalizedRates: IRate[] = [
+    const normalizedRates: INormalizedRate[] = [
       {
         from: 7,
         to: 10,
@@ -113,11 +124,11 @@ describe('branch-and-bound', () => {
         {
           coast: 10.796,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: new Array(24).fill(100),
           startHour: 0,
           totalCoast: 10.796,
+          totalMaxPower: 100,
+          totalPowerByHours: new Array(24).fill(100),
         },
       ];
 
@@ -139,65 +150,65 @@ describe('branch-and-bound', () => {
         {
           coast: 4.628,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: [0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0],
           startHour: 7,
           totalCoast: 4.628,
+          totalMaxPower: 100,
+          totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0],
         },
         {
           coast: 4.52,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0],
           startHour: 8,
           totalCoast: 4.52,
+          totalMaxPower: 100,
+          totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0],
         },
         {
           coast: 4.412,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
           startHour: 9,
           totalCoast: 4.412,
+          totalMaxPower: 100,
+          totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0, 0],
         },
         {
           coast: 4.412,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0],
           startHour: 10,
           totalCoast: 4.412,
+          totalMaxPower: 100,
+          totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0, 0],
         },
         {
           coast: 4.52,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0],
           startHour: 11,
           totalCoast: 4.52,
+          totalMaxPower: 100,
+          totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0, 0],
         },
         {
           coast: 4.628,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0],
           startHour: 12,
           totalCoast: 4.628,
+          totalMaxPower: 100,
+          totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0, 0],
         },
         {
           coast: 4.736,
           device,
-          maxPower: 100,
           parent: null,
-          powerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0],
           startHour: 13,
           totalCoast: 4.736,
+          totalMaxPower: 100,
+          totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 100, 100, 100, 100, 100, 100, 0, 0, 0],
         },
       ];
 
@@ -227,9 +238,11 @@ describe('branch-and-bound', () => {
       const parent: IVertex = {
         coast: 10,
         device: parentDevice,
-        maxPower: 24000,
         parent: null,
-        powerByHours: [
+        startHour: 7,
+        totalCoast: 10,
+        totalMaxPower: 24000,
+        totalPowerByHours: [
           1000,
           2000,
           3000,
@@ -255,17 +268,17 @@ describe('branch-and-bound', () => {
           23000,
           24000,
         ],
-        startHour: 7,
-        totalCoast: 10,
       };
 
       const result: IVertex[] = [
         {
           coast: 4.628,
           device,
-          maxPower: 24000,
           parent,
-          powerByHours: [
+          startHour: 7,
+          totalCoast: 14.628,
+          totalMaxPower: 24000,
+          totalPowerByHours: [
             1000,
             2000,
             3000,
@@ -291,15 +304,15 @@ describe('branch-and-bound', () => {
             23000,
             24000,
           ],
-          startHour: 7,
-          totalCoast: 14.628,
         },
         {
           coast: 4.52,
           device,
-          maxPower: 24000,
           parent,
-          powerByHours: [
+          startHour: 8,
+          totalCoast: 14.52,
+          totalMaxPower: 24000,
+          totalPowerByHours: [
             1000,
             2000,
             3000,
@@ -325,15 +338,15 @@ describe('branch-and-bound', () => {
             23000,
             24000,
           ],
-          startHour: 8,
-          totalCoast: 14.52,
         },
         {
           coast: 4.412,
           device,
-          maxPower: 24000,
           parent,
-          powerByHours: [
+          startHour: 9,
+          totalCoast: 14.412,
+          totalMaxPower: 24000,
+          totalPowerByHours: [
             1000,
             2000,
             3000,
@@ -359,15 +372,15 @@ describe('branch-and-bound', () => {
             23000,
             24000,
           ],
-          startHour: 9,
-          totalCoast: 14.412,
         },
         {
           coast: 4.412,
           device,
-          maxPower: 24000,
           parent,
-          powerByHours: [
+          startHour: 10,
+          totalCoast: 14.412,
+          totalMaxPower: 24000,
+          totalPowerByHours: [
             1000,
             2000,
             3000,
@@ -393,15 +406,15 @@ describe('branch-and-bound', () => {
             23000,
             24000,
           ],
-          startHour: 10,
-          totalCoast: 14.412,
         },
         {
           coast: 4.52,
           device,
-          maxPower: 24000,
           parent,
-          powerByHours: [
+          startHour: 11,
+          totalCoast: 14.52,
+          totalMaxPower: 24000,
+          totalPowerByHours: [
             1000,
             2000,
             3000,
@@ -427,15 +440,15 @@ describe('branch-and-bound', () => {
             23000,
             24000,
           ],
-          startHour: 11,
-          totalCoast: 14.52,
         },
         {
           coast: 4.628,
           device,
-          maxPower: 24000,
           parent,
-          powerByHours: [
+          startHour: 12,
+          totalCoast: 14.628,
+          totalMaxPower: 24000,
+          totalPowerByHours: [
             1000,
             2000,
             3000,
@@ -461,15 +474,15 @@ describe('branch-and-bound', () => {
             23000,
             24000,
           ],
-          startHour: 12,
-          totalCoast: 14.628,
         },
         {
           coast: 4.736,
           device,
-          maxPower: 24000,
           parent,
-          powerByHours: [
+          startHour: 13,
+          totalCoast: 14.736,
+          totalMaxPower: 24000,
+          totalPowerByHours: [
             1000,
             2000,
             3000,
@@ -495,8 +508,6 @@ describe('branch-and-bound', () => {
             23000,
             24000,
           ],
-          startHour: 13,
-          totalCoast: 14.736,
         },
       ];
 
@@ -505,6 +516,206 @@ describe('branch-and-bound', () => {
       for (let i = 0; i < funcResult.length; ++i) {
         compareVertex(funcResult[i], result[i]);
       }
+    });
+  });
+
+  describe('class NoDecisionError', () => {
+    it('should created', () => {
+      const result = new NoDecisionError();
+      expect(result).to.be.not.null;
+    });
+    it('should contain message', () => {
+      const result = new NoDecisionError();
+      expect(result.message).to.be.equal('Sorry, but you can not find a solution=(');
+    });
+  });
+
+  describe('createDeviceVertex()', () => {
+    const normalizedRates: INormalizedRate[] = [
+      {
+        from: 7,
+        to: 10,
+        value: 0.00646,
+      },
+      {
+        from: 10,
+        to: 17,
+        value: 0.00538,
+      },
+      {
+        from: 17,
+        to: 21,
+        value: 0.00646,
+      },
+      {
+        from: 21,
+        to: 23,
+        value: 0.00538,
+      },
+      {
+        from: 23,
+        to: 7,
+        value: 0.00179,
+      },
+    ];
+
+    const device: IDevice = {
+      duration: 2,
+      id: '',
+      name: '',
+      power: 100,
+    };
+
+    it('should return vertex', () => {
+      const expectedResult: IVertex = {
+        coast: 1.076,
+        device,
+        parent: null,
+        startHour: 10,
+        totalCoast: 1.076,
+        totalMaxPower: 100,
+        totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      };
+
+      const result = createDeviceVertex(null, device, 10, normalizedRates);
+      compareVertex(result, expectedResult);
+    });
+
+    it('should return vertex with parent', () => {
+      const parent: IVertex = {
+        coast: 10,
+        device,
+        parent: null,
+        startHour: 1,
+        totalCoast: 10,
+        totalMaxPower: 200,
+        totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      };
+
+      const expectedResult: IVertex = {
+        coast: 1.076,
+        device,
+        parent,
+        startHour: 10,
+        totalCoast: 10.076,
+        totalMaxPower: 100,
+        totalPowerByHours: [0, 0, 0, 0, 0, 0, 0, 0, 0, 200, 300, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      };
+
+      const result = createDeviceVertex(parent, device, 10, normalizedRates);
+      compareVertex(result, expectedResult);
+    });
+  });
+
+  describe('filterDeviceVertices()', () => {
+    it('should return filtered vertices', () => {
+      const device: IDevice = {
+        duration: 2,
+        id: '',
+        name: '',
+        power: 100,
+      };
+
+      const vertices: IVertex[] = [
+        {
+          coast: 1,
+          device,
+          parent: null,
+          startHour: 1,
+          totalCoast: 1,
+          totalMaxPower: 100,
+          totalPowerByHours: [],
+        },
+        {
+          coast: 2,
+          device,
+          parent: null,
+          startHour: 2,
+          totalCoast: 2,
+          totalMaxPower: 200,
+          totalPowerByHours: [],
+        },
+        {
+          coast: 3,
+          device,
+          parent: null,
+          startHour: 3,
+          totalCoast: 3,
+          totalMaxPower: 500,
+          totalPowerByHours: [],
+        },
+        {
+          coast: 4,
+          device,
+          parent: null,
+          startHour: 4,
+          totalCoast: 4,
+          totalMaxPower: 200,
+          totalPowerByHours: [],
+        },
+      ];
+
+      const expectedResult: IVertex[] = [
+        {
+          coast: 1,
+          device,
+          parent: null,
+          startHour: 1,
+          totalCoast: 1,
+          totalMaxPower: 100,
+          totalPowerByHours: [],
+        },
+        {
+          coast: 2,
+          device,
+          parent: null,
+          startHour: 2,
+          totalCoast: 2,
+          totalMaxPower: 200,
+          totalPowerByHours: [],
+        },
+        {
+          coast: 4,
+          device,
+          parent: null,
+          startHour: 4,
+          totalCoast: 4,
+          totalMaxPower: 200,
+          totalPowerByHours: [],
+        },
+      ];
+
+      expect(filterDeviceVertices(vertices, 400)).to.be.eql(expectedResult);
+    });
+  });
+
+  describe('calculate()', () => {
+    const input = JSON.parse(readFileSync(join(__dirname, 'input.json'), 'utf-8'));
+    const output = JSON.parse(readFileSync(join(__dirname, 'output.json'), 'utf-8'));
+    const normalizedInput = normalizeInput(input);
+
+    it('should return result without statistic', () => {
+      const resultWithoutStatistic = calculate(normalizedInput);
+      expect(resultWithoutStatistic.output).to.be.eql(output);
+      expect(resultWithoutStatistic.statistic).to.be.undefined;
+    });
+
+    it('should return result with statistic', () => {
+      const resultWithStatistic = calculate(normalizedInput, true);
+      const statistic = resultWithStatistic.statistic as IStatistic;
+      expect(statistic.equallyDecisionCount).to.be.equal(288);
+      expect(statistic.verticesInLastRow).to.be.equal(2288);
+      expect(statistic.leadTime).to.be.not.undefined;
+    });
+
+    it('should throw error', () => {
+      normalizedInput.devices.push({
+        duration: 1,
+        id: '',
+        name: '',
+        power: 2050,
+      });
+      expect(() => calculate(normalizedInput)).to.throw(NoDecisionError);
     });
   });
 });

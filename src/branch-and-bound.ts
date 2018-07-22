@@ -1,16 +1,47 @@
 import { performance } from 'perf_hooks';
-import { IDevice, IInput, IRate } from './index';
+import { IDevice, INormalizedInput, INormalizedRate, IOutput, IOutputDeviceValues, IOutputSchedule } from './index';
 import { sortDevices } from './sort-devices';
 import { deviceAvailableStartHours, deviceWorkHours, findRateForHour } from './time';
 
+/**
+ * Вершина дерева
+ */
 export interface IVertex {
-  parent: IVertex | null; // Родитель
-  device: IDevice; // Устройство
-  startHour: number; // Час начала работы
-  coast: number; // Цена работы устройства
-  totalCoast: number; // Текущая общая цена
-  powerByHours: number[]; // Мощность по часам
-  maxPower: number; // Максимальная мощность
+  /** Родитель */
+  parent: IVertex | null;
+  /** Устройство */
+  device: IDevice;
+  /** Время начала работы, час */
+  startHour: number;
+  /** Стоимость работы, условные единицы */
+  coast: number;
+  /** Общая стоимость работы, включая стоимость работы всех родительских вершин, условные единицы */
+  totalCoast: number;
+  /** Мощность, включая мощности всех родительских вершин, разбитая по часам, Вт */
+  totalPowerByHours: number[];
+  /** Максимальная потребляемая мощность, включая мощности всех родительских вершин, Вт */
+  totalMaxPower: number;
+}
+
+/**
+ * Статистика
+ */
+export interface IStatistic {
+  /** Количество решений с одинаковой минимальной стоимостью */
+  equallyDecisionCount: number;
+  /** Время выполнения в, мс */
+  leadTime: number;
+  /** Количество вершин в последнем ряде дерева решений */
+  verticesInLastRow: number;
+}
+
+/**
+ * Результат расчета
+ */
+export interface ICalculateResult {
+  /** Выходные данные */
+  output: IOutput;
+  statistic?: IStatistic;
 }
 
 /**
@@ -26,7 +57,11 @@ export interface IVertex {
  * @throws Если не найдет тариф
  */
 
-export function calculateDeviceRunCoast(device: IDevice, startHour: number, normalizedRates: IRate[]): number {
+export function calculateDeviceRunCoast(
+  device: IDevice,
+  startHour: number,
+  normalizedRates: INormalizedRate[],
+): number {
   return deviceWorkHours(device, startHour).reduce((previous, hour) => {
     // Чтоб не искать повторно rate, проверим, не удовлетворяет ли стрый нашим условиям
     const rate = findRateForHour(normalizedRates, hour);
@@ -60,16 +95,16 @@ export function createDeviceVertex(
   parent: IVertex | null,
   device: IDevice,
   startHour: number,
-  normalizedRates: IRate[],
+  normalizedRates: INormalizedRate[],
 ): IVertex {
   const parentTotalCoast = parent ? parent.totalCoast : 0;
-  const powerByHours = parent ? [...parent.powerByHours] : new Array(24).fill(0);
+  const totalPowerByHours = parent ? [...parent.totalPowerByHours] : new Array(24).fill(0);
   const runHours = deviceWorkHours(device, startHour);
-  let maxPower = 0;
+  let totalMaxPower = 0;
   for (const hour of runHours) {
-    const power = powerByHours[hour] + device.power;
-    maxPower = Math.max(maxPower, power);
-    powerByHours[hour] = power;
+    const power = totalPowerByHours[hour] + device.power;
+    totalMaxPower = Math.max(totalMaxPower, power);
+    totalPowerByHours[hour] = power;
   }
 
   const coast = calculateDeviceRunCoast(device, startHour, normalizedRates);
@@ -77,11 +112,11 @@ export function createDeviceVertex(
   return {
     coast,
     device,
-    maxPower,
     parent,
-    powerByHours,
     startHour,
     totalCoast: parentTotalCoast + coast,
+    totalMaxPower,
+    totalPowerByHours,
   };
 }
 
@@ -97,7 +132,11 @@ export function createDeviceVertex(
  *
  * @returns Массив дочерних вершин
  */
-export function createDeviceVertices(parent: IVertex | null, device: IDevice, normalizedRates: IRate[]): IVertex[] {
+export function createDeviceVertices(
+  parent: IVertex | null,
+  device: IDevice,
+  normalizedRates: INormalizedRate[],
+): IVertex[] {
   return deviceAvailableStartHours(device).map(hour => createDeviceVertex(parent, device, hour, normalizedRates));
 }
 
@@ -113,17 +152,22 @@ export function createDeviceVertices(parent: IVertex | null, device: IDevice, no
  * @returns Отфильтрованные вершины
  */
 export function filterDeviceVertices(vertices: IVertex[], maxPower: number): IVertex[] {
-  return vertices.filter(vertex => vertex.maxPower <= maxPower);
+  return vertices.filter(vertex => vertex.totalMaxPower <= maxPower);
 }
 
+/**
+ * Не найдено не одного решения
+ */
 export class NoDecisionError extends Error {
   constructor() {
     super('Sorry, but you can not find a solution=(');
   }
 }
 
-export function calculate(normalizedInput: IInput, statistic = false, precision = 4) {
-  const start = performance.now();
+export function calculate(normalizedInput: INormalizedInput, statistic = false, precision = 8): ICalculateResult {
+  // Запустим таймер расчета времени работы
+  const start = statistic ? performance.now() : undefined;
+
   // Отсортируем устройства
   const sortedDevices = sortDevices(normalizedInput.devices);
 
@@ -136,7 +180,7 @@ export function calculate(normalizedInput: IInput, statistic = false, precision 
     // Для каждого элемента последней строки
     for (const parent of lastTreeRow) {
       // Создадим ветви
-      const unfilteredChildVertices = createDeviceVertices(parent, device, normalizedInput.rates);
+      const unfilteredChildVertices = createDeviceVertices(parent, device, normalizedInput.normalizedRates);
       // Отфильтруем ветви
       const filteredChildVertices = filterDeviceVertices(unfilteredChildVertices, normalizedInput.maxPower);
       // Сохраним в следующую строку
@@ -159,49 +203,60 @@ export function calculate(normalizedInput: IInput, statistic = false, precision 
   // И для статистики сохраним, сколько одинаково "дешевых решений"
   let equallyDecisionCount = 0;
   for (const vertex of lastTreeRow) {
+    // Если работа по ветви, заканчивающейся текущей вершиной "дешевле", чем сохраненный результат
     if (!decisionVertex || (vertex as IVertex).totalCoast < decisionVertex.totalCoast) {
+      // Сохраним текущую вершину, как результат
       decisionVertex = vertex;
+      // Сбросим счетчик "одинаково дешевых решений"
       equallyDecisionCount = 1;
     } else if (statistic && decisionVertex && (vertex as IVertex).totalCoast === decisionVertex.totalCoast) {
+      // Если мы собираем статистику, и решение стоит столько же, то увеличим счетчик "одинаково дешевых решений"
       equallyDecisionCount++;
     }
   }
 
-  // Сделаем проверку, но в теории мы никогда в нее не попадем
-  if (!decisionVertex) {
-    throw new Error('Something the programmer got it wrong. The best vertex can not be found.');
-  }
-
-  let statisticObject: any;
-  if (statistic) {
-    const end = performance.now();
-    statisticObject = {
-      equallyDecisionCount,
-      leadTime: end - start,
-      verticesInLastRow: lastTreeRow.length,
-    };
-  }
-
-  const value: any = decisionVertex.totalCoast.toFixed(precision);
-  const devices: any = {};
-  const schedule: any = {};
+  // Сохраним цену работы
+  const value: number = parseFloat((decisionVertex as IVertex).totalCoast.toFixed(precision));
+  const devices: IOutputDeviceValues = {};
+  const schedule: IOutputSchedule = {};
+  // Заполним расписание пустыми массивами
   for (let i = 0; i < 24; ++i) {
     schedule[i] = [];
   }
 
+  // Пройдемся по всем родительским вершинам от найденной "оптимальной"
   let currentVertex: IVertex | null = decisionVertex;
   while (currentVertex) {
     const hours = deviceWorkHours(currentVertex.device, currentVertex.startHour);
+    // Добавим устройство в расписание
     for (const hour of hours) {
-      schedule[hour].push(currentVertex.device.id).toFixed(precision);
+      schedule[hour].push(currentVertex.device.id);
     }
-    devices[currentVertex.device.id] = currentVertex.coast.toFixed(precision);
+    // Сохраним стоимость работы устройства
+    devices[currentVertex.device.id] = parseFloat(currentVertex.coast.toFixed(precision));
 
     currentVertex = currentVertex.parent;
   }
 
+  // Отсортируем график, чтоб получать всегда ожидаемый результат
+  for (let i = 0; i < 24; ++i) {
+    schedule[i] = schedule[i].sort();
+  }
+
+  let statisticObject: any;
+  // Сохраним статистику
+  if (statistic) {
+    // Рассчитаем время окончания работы алгоритма
+    const end = performance.now();
+    statisticObject = {
+      equallyDecisionCount,
+      leadTime: end - (start as number),
+      verticesInLastRow: lastTreeRow.length,
+    };
+  }
+
   return {
-    result: {
+    output: {
       consumedEnergy: {
         devices,
         value,

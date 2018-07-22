@@ -1,7 +1,14 @@
 import { expect } from 'chai';
 import 'mocha';
-import { IDevice, IRate } from './index';
-import { canDeviceStartAt, deviceAvailableStartHours, deviceWorkHours, findRateForHour, isDay, isNight } from './time';
+import { IDevice, IRate } from '../src/index';
+import {
+  canDeviceStartAt,
+  deviceAvailableStartHours,
+  deviceWorkHours,
+  findRateForHour,
+  isDay,
+  isNight,
+} from '../src/time';
 
 describe('time', () => {
   describe('isDay()', () => {
