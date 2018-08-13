@@ -7,7 +7,9 @@
     "test": "nyc mocha",
     "build": "tsc",
     "watch": "tsc -w",
-    "start": "node dist/index.js -i test/input.json -o output.json && cat output.json"
+    "start": "node dist/index.js -i test/input.json -o output.json && cat output.json",
+    "precommit": "lint-staged",
+    "postcommit": "git update-index --again"
   },
   "repository": {
     "type": "git",
@@ -25,6 +27,8 @@
     "@types/node": "^10.5.2",
     "@types/yargs": "^11.1.1",
     "chai": "^4.1.2",
+    "husky": "^0.14.3",
+    "lint-staged": "^7.2.2",
     "mocha": "^5.2.0",
     "nyc": "^12.0.2",
     "source-map-support": "^0.5.6",

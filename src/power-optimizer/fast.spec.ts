@@ -2,9 +2,7 @@ import { expect } from 'chai';
 import { readFileSync } from 'fs';
 import 'mocha';
 import { join } from 'path';
-import {
-  calculate, IStatistic, NoDecisionError,
-} from './fast';
+import { calculate, IStatistic, NoDecisionError } from './fast';
 import { normalizeInput } from './normalizer';
 
 describe('fast', () => {

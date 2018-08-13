@@ -32,8 +32,7 @@ const argv = yargs
   .version('1.0.0')
   .locale('en')
   .epilog('(c) 2018 Pavel Puchkov <0x6368656174@gmail.com> https://github.com/0x6368656174/sri2018-ex3')
-  .help('help')
-  .argv;
+  .help('help').argv;
 
 const inputFilePath = path.resolve(process.cwd(), argv.input);
 if (!fs.existsSync(inputFilePath)) {
@@ -57,12 +56,20 @@ const input = JSON.parse(file);
 
 let algorithm = Algorithm.Auto;
 switch (argv.algorithm) {
-  case 'auto': algorithm = Algorithm.Auto; break;
-  case 'both': algorithm = Algorithm.Both; break;
-  case 'fast': algorithm = Algorithm.Fast; break;
-  case 'bnb': algorithm = Algorithm.BnB; break;
+  case 'auto':
+    algorithm = Algorithm.Auto;
+    break;
+  case 'both':
+    algorithm = Algorithm.Both;
+    break;
+  case 'fast':
+    algorithm = Algorithm.Fast;
+    break;
+  case 'bnb':
+    algorithm = Algorithm.BnB;
+    break;
 }
 
 const result = calculate(input, algorithm, argv['print-statistic']);
 
-fs.writeFileSync(outputFilePath, JSON.stringify(result, null, 2 ));
+fs.writeFileSync(outputFilePath, JSON.stringify(result, null, 2));
