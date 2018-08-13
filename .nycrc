@@ -14,5 +14,7 @@
     "html",
     "text"
   ],
-  "all": true
+  "include": [
+    "src/power-optimizer/**/*.ts"
+  ]
 }
